@@ -15,7 +15,7 @@ from deepafx_st.models.controller import StyleTransferController
 from deepafx_st.processors.spsa.channel import SPSAChannel
 from deepafx_st.processors.spsa.eps_scheduler import EpsilonScheduler
 from deepafx_st.processors.proxy.channel import ProxyChannel
-from deepafx_st.processors.autodiff.channel import AutodiffChannel
+from processors.autodiff.channel import AutodiffChannel
 
 
 class CadenzaSystem(nn.Module):
@@ -198,6 +198,7 @@ class CadenzaSystem(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
+        gain: torch.Tensor,
         y: torch.Tensor = None,
         e_y: torch.Tensor = None,
         z: torch.Tensor = None,
@@ -249,6 +250,7 @@ class CadenzaSystem(nn.Module):
 
         # learnable comparision
         p = self.controller(e_x, e_y, z=z)
+        p_with_gain = torch.cat((p, gain), dim=1)
 
         # process audio conditioned on parameters
         # if there are multiple channels process them using same parameters
@@ -256,104 +258,104 @@ class CadenzaSystem(nn.Module):
         for ch_idx in range(chs):
             y_hat_ch = self.processor(
                 x[:, ch_idx : ch_idx + 1, :],
-                p,
+                p_with_gain,
                 epsilon=self.eps_scheduler.epsilon,
                 dsp_mode=dsp_mode,
                 sample_rate=self.dsp_sample_rate,
             )
             y_hat[:, ch_idx : ch_idx + 1, :] = y_hat_ch
 
-        return y_hat, p, e_x
+        return y_hat, p_with_gain, e_x
 
-    # def common_paired_step(
-    #     self,
-    #     batch: Tuple,
-    #     batch_idx: int,
-    #     optimizer_idx: int = 0,
-    #     train: bool = False,
-    # ):
-    #     """Model step used for validation and training.
+    def common_paired_step(
+        self,
+        batch: Tuple,
+        batch_idx: int,
+        optimizer_idx: int = 0,
+        train: bool = False,
+    ):
+        """Model step used for validation and training.
 
-    #     Args:
-    #         batch (Tuple[Tensor, Tensor]): Batch items containing input audio (x) and target audio (y).
-    #         batch_idx (int): Index of the batch within the current epoch.
-    #         optimizer_idx (int): Index of the optimizer, this step is called once for each optimizer.
-    #             The firs optimizer corresponds to the generator and the second optimizer,
-    #             corresponds to the adversarial loss (when in use).
-    #         train (bool): Whether step is called during training (True) or validation (False).
-    #     """
-    #     x, y = batch
-    #     loss = 0
-    #     dsp_mode = self.hparams.dsp_mode
+        Args:
+            batch (Tuple[Tensor, Tensor]): Batch items containing input audio (x) and target audio (y).
+            batch_idx (int): Index of the batch within the current epoch.
+            optimizer_idx (int): Index of the optimizer, this step is called once for each optimizer.
+                The firs optimizer corresponds to the generator and the second optimizer,
+                corresponds to the adversarial loss (when in use).
+            train (bool): Whether step is called during training (True) or validation (False).
+        """
+        x, y = batch
+        loss = 0
+        dsp_mode = self.hparams.dsp_mode
 
-    #     if train and dsp_mode.INFER.name == DSPMode.INFER.name:
-    #         dsp_mode = DSPMode.NONE
+        if train and dsp_mode.INFER.name == DSPMode.INFER.name:
+            dsp_mode = DSPMode.NONE
 
-    #     # proces input audio through model
-    #     if self.hparams.style_transfer:
-    #         length = x.shape[-1]
+        # proces input audio through model
+        if self.hparams.style_transfer:
+            length = x.shape[-1]
 
-    #         x_A = x[..., : length // 2]
-    #         x_B = x[..., length // 2 :]
+            x_A = x[..., : length // 2]
+            x_B = x[..., length // 2 :]
 
-    #         y_A = y[..., : length // 2]
-    #         y_B = y[..., length // 2 :]
+            y_A = y[..., : length // 2]
+            y_B = y[..., length // 2 :]
 
-    #         if torch.rand(1).sum() > 0.5:
-    #             y_ref = y_B
-    #             y = y_A
-    #             x = x_A
-    #         else:
-    #             y_ref = y_A
-    #             y = y_B
-    #             x = x_B
+            if torch.rand(1).sum() > 0.5:
+                y_ref = y_B
+                y = y_A
+                x = x_A
+            else:
+                y_ref = y_A
+                y = y_B
+                x = x_B
 
-    #         y_hat, p, e = self(x, y=y_ref, dsp_mode=dsp_mode)
-    #     else:
-    #         y_ref = None
-    #         y_hat, p, e = self(x, dsp_mode=dsp_mode)
+            y_hat, p, e = self(x, y=y_ref, dsp_mode=dsp_mode)
+        else:
+            y_ref = None
+            y_hat, p, e = self(x, dsp_mode=dsp_mode)
 
-    #     # compute reconstruction loss terms
-    #     for loss_idx, (loss_name, recon_loss_fn) in enumerate(
-    #         self.recon_losses.items()
-    #     ):
-    #         temp_loss = recon_loss_fn(y_hat, y)  # reconstruction loss
-    #         loss += float(self.hparams.recon_loss_weights[loss_idx]) * temp_loss
+        # compute reconstruction loss terms
+        for loss_idx, (loss_name, recon_loss_fn) in enumerate(
+            self.recon_losses.items()
+        ):
+            temp_loss = recon_loss_fn(y_hat, y)  # reconstruction loss
+            loss += float(self.hparams.recon_loss_weights[loss_idx]) * temp_loss
 
-    #         self.log(
-    #             ("train" if train else "val") + f"_loss/{loss_name}",
-    #             temp_loss,
-    #             on_step=True,
-    #             on_epoch=True,
-    #             prog_bar=False,
-    #             logger=True,
-    #             sync_dist=True,
-    #         )
+            self.log(
+                ("train" if train else "val") + f"_loss/{loss_name}",
+                temp_loss,
+                on_step=True,
+                on_epoch=True,
+                prog_bar=False,
+                logger=True,
+                sync_dist=True,
+            )
 
-    #     # log the overall aggregate loss
-    #     self.log(
-    #         ("train" if train else "val") + "_loss/loss",
-    #         loss,
-    #         on_step=True,
-    #         on_epoch=True,
-    #         prog_bar=False,
-    #         logger=True,
-    #         sync_dist=True,
-    #     )
+        # log the overall aggregate loss
+        self.log(
+            ("train" if train else "val") + "_loss/loss",
+            loss,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=False,
+            logger=True,
+            sync_dist=True,
+        )
 
-    #     # store audio data
-    #     data_dict = {
-    #         "x": x.cpu(),
-    #         "y": y.cpu(),
-    #         "p": p.cpu(),
-    #         "e": e.cpu(),
-    #         "y_hat": y_hat.cpu(),
-    #     }
+        # store audio data
+        data_dict = {
+            "x": x.cpu(),
+            "y": y.cpu(),
+            "p": p.cpu(),
+            "e": e.cpu(),
+            "y_hat": y_hat.cpu(),
+        }
 
-    #     if y_ref is not None:
-    #         data_dict["y_ref"] = y_ref.cpu()
+        if y_ref is not None:
+            data_dict["y_ref"] = y_ref.cpu()
 
-    #     return loss, data_dict
+        return loss, data_dict
 
     # def training_step(self, batch, batch_idx, optimizer_idx=0):
     #     loss, _ = self.common_paired_step(

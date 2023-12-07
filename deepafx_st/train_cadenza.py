@@ -115,14 +115,61 @@ def make_scene_listener_list(scenes_listeners: dict, small_test: bool = False) -
 
     return scene_listener_pairs
 
+def get_waveforms_and_gain_params(scene_listener_pair, enhancer, compressor):
+    scene_id, listener_id = scene_listener_pair
+
+    scene = scenes[scene_id]
+    song_name = f"{scene['music']}-{scene['head_loudspeaker_positions']}"
+
+    print(f"[{idx:03d}/{num_scenes:03d}] ")
+    print(f"Processing {scene_id}: {song_name} for listener {listener_id}")
+
+    logger.info(
+        f"[{idx:03d}/{num_scenes:03d}] "
+        f"Processing {scene_id}: {song_name} for listener {listener_id}"
+    )
+    # Get the listener's audiogram
+    listener = listener_dict[listener_id]
+
+    target_filepath = os.path.join(target_folder, song_name)
+    target_waveform, target_sample_rate = torchaudio.load(target_filepath + ".wav")
+
+    last_hyphen_index = song_name.rfind('-')
+    # Extract the string before the last hyphen
+    clean_song_name = song_name[:last_hyphen_index]
+    clean_filepath = os.path.join(clean_folder + clean_song_name)
+    clean_waveform, clean_sample_rate = torchaudio.load(target_filepath + ".wav")
+
+    assert target_sample_rate == clean_sample_rate
+
+    start_sample = torch.randint(0, target_waveform.shape[1] - desired_samples, ())
+
+    # Extract the desired duration of audio from both channels
+    selected_target_waveform = target_waveform[:, start_sample:start_sample + desired_samples]
+    selected_clean_waveform = clean_waveform[:, start_sample:start_sample + desired_samples]
+
+    selected_enhanced_waveform = process_remix_for_listener(
+        signal=selected_clean_waveform,
+        enhancer=enhancer,
+        compressor=compressor,
+        listener=listener,
+        apply_compressor=False,
+    )
+    selected_enhanced_waveform = torch.from_numpy(selected_enhanced_waveform)[:, :desired_samples]
+    
+    gain_tensor = torch.tensor(list(gains[scene["gain"]].values()))
+
+    return selected_enhanced_waveform.to(dtype=torch.float), selected_target_waveform.to(dtype=torch.float), gain_tensor
+
+
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     # create the System
-    system = CadenzaSystem()
+    cadenza_model = CadenzaSystem()
 
     # print details about the model
-    system_summary(system)
+    system_summary(cadenza_model)
 
     # Example usage
     clean_folder = '/Users/emilykuo/Desktop/cadenza_data/clean'
@@ -153,55 +200,14 @@ if __name__ == "__main__":
     num_scenes = len(scene_listener_pairs)
     num_epochs = 1
     desired_duration = 10
-    desired_samples = int(desired_duration * 44100)
+    fs = 44100
+    desired_samples = int(desired_duration * fs)
 
     for epoch in range(num_epochs):
         for idx, scene_listener_pair in enumerate(scene_listener_pairs, 1):
-            scene_id, listener_id = scene_listener_pair
+            enhanced_tensor, target_tensor, gain_tensor = get_waveforms_and_gain_params(scene_listener_pair, enhancer, compressor)
 
-            scene = scenes[scene_id]
-            song_name = f"{scene['music']}-{scene['head_loudspeaker_positions']}"
-
-            print(f"[{idx:03d}/{num_scenes:03d}] ")
-            print(f"Processing {scene_id}: {song_name} for listener {listener_id}")
-
-            logger.info(
-                f"[{idx:03d}/{num_scenes:03d}] "
-                f"Processing {scene_id}: {song_name} for listener {listener_id}"
-            )
-            # Get the listener's audiogram
-            listener = listener_dict[listener_id]
-
-            target_filepath = os.path.join(target_folder, song_name)
-            target_waveform, target_sample_rate = torchaudio.load(target_filepath + ".wav")
-
-            last_hyphen_index = song_name.rfind('-')
-            # Extract the string before the last hyphen
-            clean_song_name = song_name[:last_hyphen_index]
-            clean_filepath = os.path.join(clean_folder + clean_song_name)
-            clean_waveform, clean_sample_rate = torchaudio.load(target_filepath + ".wav")
-
-            assert target_sample_rate == clean_sample_rate
-
-
-            start_sample = torch.randint(0, target_waveform.shape[1] - desired_samples, ())
-
-            # Extract the desired duration of audio from both channels
-            selected_target_waveform = target_waveform[:, start_sample:start_sample + desired_samples]
-            selected_clean_waveform = clean_waveform[:, start_sample:start_sample + desired_samples]
-
-            selected_enhanced_waveform = process_remix_for_listener(
-                signal=selected_clean_waveform,
-                enhancer=enhancer,
-                compressor=compressor,
-                listener=listener,
-                apply_compressor=False,
-            )
-            selected_enhanced_waveform = torch.from_numpy(selected_enhanced_waveform)[:, :desired_samples]
-
-            gain_params = list(gains[scene["gain"]].values())
-            print(gain_params)
-
-            
+            y_hat, p, e = cadenza_model(x=enhanced_tensor[0, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[0, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs)
+            y_hat, p, e = cadenza_model(x=enhanced_tensor[1, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[1, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs)
             
 
