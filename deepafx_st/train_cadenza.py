@@ -198,16 +198,40 @@ if __name__ == "__main__":
     listener_dict = Listener.load_listener_dict(metadata_path + "listeners.train.json")
 
     num_scenes = len(scene_listener_pairs)
+    print("number of scenes:", num_scenes)
     num_epochs = 1
     desired_duration = 10
     fs = 44100
     desired_samples = int(desired_duration * fs)
 
+    iters, losses = [], []
     for epoch in range(num_epochs):
-        for idx, scene_listener_pair in enumerate(scene_listener_pairs, 1):
+        # training
+        for iter, scene_listener_pair in enumerate(scene_listener_pairs[:40], 1):
             enhanced_tensor, target_tensor, gain_tensor = get_waveforms_and_gain_params(scene_listener_pair, enhancer, compressor)
-
-            y_hat, p, e = cadenza_model(x=enhanced_tensor[0, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[0, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs)
-            y_hat, p, e = cadenza_model(x=enhanced_tensor[1, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[1, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs)
             
+            loss_left, data_dict_left = cadenza_model.common_paired_step(x=enhanced_tensor[0, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[0, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs)
+            loss_right, data_dict_right = cadenza_model.common_paired_step(x=enhanced_tensor[1, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[1, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs)
+            loss = (loss_left + loss_right) / 2
+            loss.backward()
+            cadenza_model.optimizer.step()
+            cadenza_model.optimizer.zero_grad()
+            iters.append(iter)
+            losses.append(loss)
+    
+        checkpoint_info = {
+            'epoch': 1,
+            'loss': loss,
+        }
 
+        # Create a dictionary to save both the model state and additional information
+        checkpoint = {
+            'model_state_dict': cadenza_model.state_dict(),
+            **checkpoint_info,
+        }
+
+        # Save the checkpoint to a file
+        checkpoint_path = 'cadenza_model_checkpoint_epoch' + str(epoch) + '.pth'
+        torch.save(checkpoint, checkpoint_path)
+
+        print(f"Checkpoint saved at {checkpoint_path}")

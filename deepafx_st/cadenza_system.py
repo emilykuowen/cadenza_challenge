@@ -34,6 +34,7 @@ class CadenzaSystem(nn.Module):
         self.dsp_mode = DSPMode.NONE
         self.processor = AutodiffChannel(self.dsp_sample_rate)
 
+
         # # first construct the processor, since this will dictate encoder
         # if self.hparams.processor_model == "spsa":
         #     self.processor = SPSAChannel(
@@ -124,6 +125,15 @@ class CadenzaSystem(nn.Module):
             1024,
         )
 
+        self.optimizer = torch.optim.Adam(
+            chain(
+                self.encoder.parameters(),
+                self.processor.parameters(),
+                self.controller.parameters(),
+            ),
+            lr=1e-4,
+            betas=(0.9, 0.999),
+        )
         # if len(self.recon_losses) != len(self.recon_loss_weights):
             # raise ValueError("Must supply same number of weights as losses.")
 
@@ -227,7 +237,6 @@ class CadenzaSystem(nn.Module):
         """
         bs, chs, samp = x.size()
         
-        # TODO: fix sample rate here
         if data_sample_rate != self.dsp_sample_rate:
             x_enc = torchaudio.transforms.Resample(data_sample_rate, self.dsp_sample_rate).to(x.device)(x)
             if y is not None:
@@ -269,9 +278,10 @@ class CadenzaSystem(nn.Module):
 
     def common_paired_step(
         self,
-        batch: Tuple,
-        batch_idx: int,
-        optimizer_idx: int = 0,
+        x: torch.Tensor,
+        gain: torch.Tensor,
+        data_sample_rate: int, 
+        y: torch.Tensor = None,
         train: bool = False,
     ):
         """Model step used for validation and training.
@@ -284,64 +294,59 @@ class CadenzaSystem(nn.Module):
                 corresponds to the adversarial loss (when in use).
             train (bool): Whether step is called during training (True) or validation (False).
         """
-        x, y = batch
         loss = 0
-        dsp_mode = self.hparams.dsp_mode
+        # dsp_mode = self.hparams.dsp_mode
 
-        if train and dsp_mode.INFER.name == DSPMode.INFER.name:
-            dsp_mode = DSPMode.NONE
+        # if train and dsp_mode.INFER.name == DSPMode.INFER.name:
+        #     dsp_mode = DSPMode.NONE
 
         # proces input audio through model
-        if self.hparams.style_transfer:
-            length = x.shape[-1]
+        length = x.shape[-1]
 
-            x_A = x[..., : length // 2]
-            x_B = x[..., length // 2 :]
+        x_A = x[..., : length // 2]
+        x_B = x[..., length // 2 :]
 
-            y_A = y[..., : length // 2]
-            y_B = y[..., length // 2 :]
+        y_A = y[..., : length // 2]
+        y_B = y[..., length // 2 :]
 
-            if torch.rand(1).sum() > 0.5:
-                y_ref = y_B
-                y = y_A
-                x = x_A
-            else:
-                y_ref = y_A
-                y = y_B
-                x = x_B
-
-            y_hat, p, e = self(x, y=y_ref, dsp_mode=dsp_mode)
+        if torch.rand(1).sum() > 0.5:
+            y_ref = y_B
+            y = y_A
+            x = x_A
         else:
-            y_ref = None
-            y_hat, p, e = self(x, dsp_mode=dsp_mode)
+            y_ref = y_A
+            y = y_B
+            x = x_B
 
+        y_hat, p, e = self(x, gain=gain, y=y_ref, data_sample_rate=data_sample_rate)
+
+        recon_loss_weights = [1, 100]
         # compute reconstruction loss terms
-        for loss_idx, (loss_name, recon_loss_fn) in enumerate(
-            self.recon_losses.items()
-        ):
+        for loss_idx, (loss_name, recon_loss_fn) in enumerate(self.recon_losses.items()):
             temp_loss = recon_loss_fn(y_hat, y)  # reconstruction loss
-            loss += float(self.hparams.recon_loss_weights[loss_idx]) * temp_loss
-
-            self.log(
-                ("train" if train else "val") + f"_loss/{loss_name}",
-                temp_loss,
-                on_step=True,
-                on_epoch=True,
-                prog_bar=False,
-                logger=True,
-                sync_dist=True,
-            )
+            loss += float(recon_loss_weights[loss_idx]) * temp_loss
+            print(("train" if train else "val") + f"_loss/{loss_name}", temp_loss)
+            # self.log(
+            #     ("train" if train else "val") + f"_loss/{loss_name}",
+            #     temp_loss,
+            #     on_step=True,
+            #     on_epoch=True,
+            #     prog_bar=False,
+            #     logger=True,
+            #     sync_dist=True,
+            # )
 
         # log the overall aggregate loss
-        self.log(
-            ("train" if train else "val") + "_loss/loss",
-            loss,
-            on_step=True,
-            on_epoch=True,
-            prog_bar=False,
-            logger=True,
-            sync_dist=True,
-        )
+        print(("train" if train else "val") + "_loss/loss", loss)
+        # self.log(
+        #     ("train" if train else "val") + "_loss/loss",
+        #     loss,
+        #     on_step=True,
+        #     on_epoch=True,
+        #     prog_bar=False,
+        #     logger=True,
+        #     sync_dist=True,
+        # )
 
         # store audio data
         data_dict = {
