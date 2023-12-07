@@ -121,11 +121,11 @@ def get_waveforms_and_gain_params(scene_listener_pair, enhancer, compressor):
     scene = scenes[scene_id]
     song_name = f"{scene['music']}-{scene['head_loudspeaker_positions']}"
 
-    print(f"[{idx:03d}/{num_scenes:03d}] ")
+    print(f"[{iter:03d}/{num_scenes:03d}] ")
     print(f"Processing {scene_id}: {song_name} for listener {listener_id}")
 
     logger.info(
-        f"[{idx:03d}/{num_scenes:03d}] "
+        f"[{iter:03d}/{num_scenes:03d}] "
         f"Processing {scene_id}: {song_name} for listener {listener_id}"
     )
     # Get the listener's audiogram
