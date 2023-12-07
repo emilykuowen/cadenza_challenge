@@ -137,8 +137,8 @@ def get_waveforms_and_gain_params(scene_listener_pair, enhancer, compressor):
     last_hyphen_index = song_name.rfind('-')
     # Extract the string before the last hyphen
     clean_song_name = song_name[:last_hyphen_index]
-    clean_filepath = os.path.join(clean_folder + clean_song_name)
-    clean_waveform, clean_sample_rate = torchaudio.load(target_filepath + ".wav")
+    clean_filepath = os.path.join(clean_folder, clean_song_name)
+    clean_waveform, clean_sample_rate = torchaudio.load(clean_filepath + ".wav")
 
     assert target_sample_rate == clean_sample_rate
 
@@ -157,9 +157,9 @@ def get_waveforms_and_gain_params(scene_listener_pair, enhancer, compressor):
     )
     selected_enhanced_waveform = torch.from_numpy(selected_enhanced_waveform)[:, :desired_samples]
     
-    gain_tensor = torch.tensor(list(gains[scene["gain"]].values()))
+    gain_tensor = torch.tensor(list(gains[scene["gain"]].values()), dtype=torch.float, requires_grad=True)
 
-    return selected_enhanced_waveform.to(dtype=torch.float), selected_target_waveform.to(dtype=torch.float), gain_tensor
+    return torch.tensor(selected_enhanced_waveform, dtype=torch.float, requires_grad=True), torch.tensor(selected_target_waveform, dtype=torch.float, requires_grad=True), gain_tensor
 
 
 if __name__ == "__main__":
@@ -199,29 +199,39 @@ if __name__ == "__main__":
 
     num_scenes = len(scene_listener_pairs)
     print("number of scenes:", num_scenes)
-    num_epochs = 1
+    num_epochs = 20
     desired_duration = 10
     fs = 44100
     desired_samples = int(desired_duration * fs)
 
-    iters, losses = [], []
+    iters, training_losses, validation_losses = [], [], []
     for epoch in range(num_epochs):
         # training
         for iter, scene_listener_pair in enumerate(scene_listener_pairs[:40], 1):
             enhanced_tensor, target_tensor, gain_tensor = get_waveforms_and_gain_params(scene_listener_pair, enhancer, compressor)
             
-            loss_left, data_dict_left = cadenza_model.common_paired_step(x=enhanced_tensor[0, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[0, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs)
-            loss_right, data_dict_right = cadenza_model.common_paired_step(x=enhanced_tensor[1, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[1, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs)
-            loss = (loss_left + loss_right) / 2
-            loss.backward()
+            training_loss_left, data_dict_left = cadenza_model.common_paired_step(x=enhanced_tensor[0, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[0, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs, train=True)
+            training_loss_right, data_dict_right = cadenza_model.common_paired_step(x=enhanced_tensor[1, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[1, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs, train=True)
+            training_loss = (training_loss_left + training_loss_right) / 2
+            training_loss.backward()
             cadenza_model.optimizer.step()
             cadenza_model.optimizer.zero_grad()
             iters.append(iter)
-            losses.append(loss)
+            training_losses.append(training_loss.item())
+        
+        for iter, scene_listener_pair in enumerate(scene_listener_pairs[40:50], 1):
+            enhanced_tensor, target_tensor, gain_tensor = get_waveforms_and_gain_params(scene_listener_pair, enhancer, compressor)
+            
+            validation_loss_left, data_dict_left = cadenza_model.common_paired_step(x=enhanced_tensor[0, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[0, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs)
+            validation_loss_right, data_dict_right = cadenza_model.common_paired_step(x=enhanced_tensor[1, :].unsqueeze(0).unsqueeze(0), gain=gain_tensor.unsqueeze(0), y=target_tensor[1, :].unsqueeze(0).unsqueeze(0), data_sample_rate=fs)
+            validation_loss = (training_loss_left + training_loss_right) / 2
+            iters.append(iter)
+            validation_losses.append(validation_loss.item())
     
         checkpoint_info = {
-            'epoch': 1,
-            'loss': loss,
+            'epoch': epoch,
+            'training_losses': training_losses,
+            'validation_losses': validation_losses
         }
 
         # Create a dictionary to save both the model state and additional information
@@ -231,7 +241,7 @@ if __name__ == "__main__":
         }
 
         # Save the checkpoint to a file
-        checkpoint_path = 'cadenza_model_checkpoint_epoch' + str(epoch) + '.pth'
+        checkpoint_path = 'checkpoints/cadenza_model_checkpoint_epoch' + str(epoch) + '.pth'
         torch.save(checkpoint, checkpoint_path)
 
         print(f"Checkpoint saved at {checkpoint_path}")

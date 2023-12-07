@@ -325,7 +325,7 @@ class CadenzaSystem(nn.Module):
         for loss_idx, (loss_name, recon_loss_fn) in enumerate(self.recon_losses.items()):
             temp_loss = recon_loss_fn(y_hat, y)  # reconstruction loss
             loss += float(recon_loss_weights[loss_idx]) * temp_loss
-            print(("train" if train else "val") + f"_loss/{loss_name}", temp_loss)
+            # print(("train" if train else "val") + f"_loss/{loss_name}", temp_loss)
             # self.log(
             #     ("train" if train else "val") + f"_loss/{loss_name}",
             #     temp_loss,
@@ -337,7 +337,7 @@ class CadenzaSystem(nn.Module):
             # )
 
         # log the overall aggregate loss
-        print(("train" if train else "val") + "_loss/loss", loss)
+        # print(("train" if train else "val") + "_loss/loss", loss)
         # self.log(
         #     ("train" if train else "val") + "_loss/loss",
         #     loss,
