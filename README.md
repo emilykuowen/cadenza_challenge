@@ -1,1 +1,0 @@
-# cadenza_challenge
