@@ -2,18 +2,19 @@ import os
 import torch
 import torchaudio
 import logging
+import json
+from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-from cadenza_system import CadenzaSystem
+import numpy as np
+from numpy import ndarray
+
 from deepafx_st.utils import system_summary
-from pathlib import Path
+from deepafx_st.cadenza_model import CadenzaModel
 from audiogram import Audiogram
 from audiogram import Listener
 from nalr import NALR
 from compressor import Compressor
-import json
-import numpy as np
-from numpy import ndarray
 
 # class CustomDataset(Dataset):
 #     def __init__(self, data_folder):
@@ -166,7 +167,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     # create the System
-    cadenza_model = CadenzaSystem()
+    cadenza_model = CadenzaModel()
 
     # print details about the model
     system_summary(cadenza_model)

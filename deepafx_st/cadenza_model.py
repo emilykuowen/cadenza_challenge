@@ -18,7 +18,7 @@ from deepafx_st.processors.proxy.channel import ProxyChannel
 from processors.autodiff.channel import AutodiffChannel
 
 
-class CadenzaSystem(nn.Module):
+class CadenzaModel(nn.Module):
     def __init__(
         self,
         ext="wav",

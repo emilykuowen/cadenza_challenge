@@ -1,5 +1,5 @@
 import torch
-from cadenza_system import CadenzaSystem
+from deepafx_st.cadenza_model import CadenzaModel
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -29,20 +29,20 @@ plt.plot(training_loss_array)
 plt.xlabel('Iterations')
 plt.ylabel('Loss')
 plt.title('Training Loss')
-plt.savefig('training_loss.png')
+plt.savefig('plots/training_loss.png')
 plt.show()
 
 plt.plot(validation_loss_array)
 plt.xlabel('Iterations')
 plt.ylabel('Loss')
 plt.title('Validation Loss')
-plt.savefig('validation_loss.png')
+plt.savefig('plots/validation_loss.png')
 plt.show()
 
 # Now, you can use the loaded information as needed
 # For example, to load the model and optimizer state:
 # Create your model instance
-# model = CadenzaSystem()
+# model = CadenzaModel()
 
 # Access the model parameters
 # model_state_dict = checkpoint['model_state_dict']
