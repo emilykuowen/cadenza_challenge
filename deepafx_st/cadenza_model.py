@@ -6,6 +6,7 @@ from deepafx_st.utils import DSPMode
 from deepafx_st.models.encoder import SpectralEncoder
 from deepafx_st.models.controller import StyleTransferController
 from processors.autodiff.channel import AutodiffChannel
+from system import System
 
 
 class CadenzaModel(nn.Module):
@@ -17,17 +18,24 @@ class CadenzaModel(nn.Module):
 
         self.processor = AutodiffChannel(self.dsp_sample_rate)
 
-        self.encoder = SpectralEncoder(
-            self.processor.num_control_params,
-            self.dsp_sample_rate,
-            encoder_model="efficient_net",
-            embed_dim=1024,
-            width_mult=1,
-        )
+        checkpoint_path = "/Users/emilykuo/Desktop/DeepAFx-ST/checkpoints/style/jamendo/autodiff/lightning_logs/version_0/checkpoints/epoch=362-step=1210241-val-jamendo-autodiff.ckpt"
+        system = System.load_from_checkpoint(checkpoint_path)
+        self.encoder = system.encoder
+        
+        # self.encoder = SpectralEncoder(
+        #     self.processor.num_control_params,
+        #     self.dsp_sample_rate,
+        #     encoder_model="efficient_net",
+        #     embed_dim=1024,
+        #     width_mult=1,
+        # )
+
+        for param in self.encoder.parameters():
+                param.requires_grad = False
 
         self.controller = StyleTransferController(
             self.processor.num_control_params,
-            1024,
+            system.encoder.embed_dim,
         )
 
     def forward(

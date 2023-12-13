@@ -22,7 +22,7 @@ if __name__ == "__main__":
     train_dataset = CadenzaDataset(root_directory, subset='train', duration=10)
     valid_dataset = CadenzaDataset(root_directory, subset='valid', duration=10)
 
-    batch_size = 32
+    batch_size = 16
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
 
@@ -53,13 +53,16 @@ if __name__ == "__main__":
     data_sample_rate = 44100
 
     training_losses, validation_losses = [], []
-    for epoch in range(num_epochs):
 
+    for epoch in range(num_epochs):
+        print("Epoch ", epoch)
+        
         # Training phase
         cadenza_model.train()
         
-        iteration = 0
+        iteration = 0        
         for batch in train_loader:
+            
             original_tensor, reference_tensor, gain_tensor = batch
             original_tensor, reference_tensor = original_tensor.unsqueeze(1).to(device), reference_tensor.unsqueeze(1).to(device)
 
