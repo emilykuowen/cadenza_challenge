@@ -38,8 +38,9 @@ class CadenzaDataset(Dataset):
     def _extract_segments(self):
         segments = []
         reference_file_list = os.listdir(self.reference_folder_path)
+        half_len = int(len(reference_file_list)//2)
         
-        for reference_filename in reference_file_list[:len(reference_file_list)/2]:
+        for reference_filename in reference_file_list[:half_len]:
             if reference_filename.endswith(".flac"):
 
                 # Using regular expressions to extract the desired parts
