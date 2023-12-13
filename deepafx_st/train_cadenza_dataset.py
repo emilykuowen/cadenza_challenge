@@ -79,6 +79,7 @@ if __name__ == "__main__":
 
             training_loss /= batch_size
             training_losses.append(training_loss)
+            logger.info(f'Epoch [{epoch+1}/{num_epochs}], Batch [{iteration+1}/{len(train_loader)}], Training Loss: {training_loss}')
             print(f'Epoch [{epoch+1}/{num_epochs}], Batch [{iteration+1}/{len(train_loader)}], Training Loss: {training_loss}')
             iteration += 1
 
@@ -106,6 +107,7 @@ if __name__ == "__main__":
 
                 validation_loss /= batch_size
                 validation_losses.append(validation_loss)
+                logger.info(f'Epoch [{epoch+1}/{num_epochs}], Batch [{iteration+1}/{len(valid_loader)}], Validation Loss: {validation_loss}')
                 print(f'Epoch [{epoch+1}/{num_epochs}], Batch [{iteration+1}/{len(valid_loader)}], Validation Loss: {validation_loss}')
                 iteration += 1
             
@@ -125,4 +127,5 @@ if __name__ == "__main__":
         checkpoint_path = 'checkpoints/cadenza_dataset_epoch' + str(epoch) + '.pth'
         torch.save(checkpoint, checkpoint_path)
 
+        logger.info(f"Checkpoint saved at {checkpoint_path}")
         print(f"Checkpoint saved at {checkpoint_path}")
