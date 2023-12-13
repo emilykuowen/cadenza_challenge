@@ -4,8 +4,6 @@ import torchaudio
 import logging
 import json
 from pathlib import Path
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
 import numpy as np
 from numpy import ndarray
 
@@ -15,28 +13,6 @@ from audiogram import Audiogram
 from audiogram import Listener
 from nalr import NALR
 from compressor import Compressor
-
-# class CustomDataset(Dataset):
-#     def __init__(self, data_folder):
-#         self.data_folder = data_folder
-#         self.file_list = os.listdir(data_folder)
-
-#     def __len__(self):
-#         return len(self.file_list)
-
-#     def __getitem__(self, idx):
-#         file_path = os.path.join(self.data_folder, self.file_list[idx])
-#         waveform, sample_rate = torchaudio.load(file_path)
-        
-#         # You can apply additional preprocessing here if needed
-#         # For example, resampling, normalizing, etc.
-
-#         # Assuming the folder structure is organized in a way that the label
-#         # is encoded in the filename or folder structure, you can extract it.
-#         # For example, if the file is named "label1_file1.wav", you can do:
-#         label = int(self.file_list[idx].split('_')[0].replace('label', ''))
-
-#         return waveform, label
 
 def apply_ha(
     enhancer: NALR,

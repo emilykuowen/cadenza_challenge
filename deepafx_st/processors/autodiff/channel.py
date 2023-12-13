@@ -10,14 +10,15 @@ class AutodiffChannel(torch.nn.Module):
         super().__init__()
         self.fc = torch.nn.Linear(22, 18)
         self.sigmoid = torch.nn.Sigmoid()
-        self.peq = ParametricEQ(sample_rate)
+        self.fs = sample_rate
+        self.peq = ParametricEQ(self.fs)
         # self.comp = Compressor(sample_rate)
         self.ports = [self.peq.ports]
         # self.ports = [self.peq.ports, self.comp.ports]
         self.num_control_params = self.peq.num_control_params
         # self.num_control_params = (self.peq.num_control_params + self.comp.num_control_params)
 
-    def forward(self, x, p, sample_rate=24000, **kwargs):
+    def forward(self, x, p):
 
         # split params between EQ and Comp.
         # p_peq = p[:, : self.peq.num_control_params]
@@ -27,6 +28,6 @@ class AutodiffChannel(torch.nn.Module):
         # y = self.comp(y, p_comp, sample_rate)
 
         p = self.sigmoid(self.fc(p))
-        y = self.peq(x, p, sample_rate)
+        y = self.peq(x, p, self.fs)
 
         return y
