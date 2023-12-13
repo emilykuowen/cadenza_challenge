@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # print details about the model
     system_summary(cadenza_model)
 
-    root_directory = "/Users/emilykuo/Desktop/cadenza_data"
+    root_directory = "/data/home/ubuntu/data/cad_icassp_2024"
     train_dataset = CadenzaDataset(root_directory, subset='train', duration=10)
     valid_dataset = CadenzaDataset(root_directory, subset='valid', duration=10)
 
