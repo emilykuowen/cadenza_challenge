@@ -13,6 +13,7 @@ class CadenzaModel(nn.Module):
     def __init__(self, dsp_sample_rate=24000):
         super().__init__()
 
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dsp_sample_rate = dsp_sample_rate
         self.dsp_mode = DSPMode.NONE
 
@@ -80,7 +81,7 @@ class CadenzaModel(nn.Module):
 
         # learnable comparision
         p = self.controller(e_x, e_y)
-        p_with_gain = torch.cat((p, gain), dim=1)
+        p_with_gain = torch.cat((p, gain), dim=1).to(self.device)
         y_hat = self.processor(x, p_with_gain).requires_grad_()
 
         # process audio conditioned on parameters
