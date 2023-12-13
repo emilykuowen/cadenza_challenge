@@ -22,16 +22,16 @@ class CadenzaDataset(Dataset):
         with Path(os.path.join(self.metadata_folder_path, "gains.json")).open("r", encoding="utf-8") as file:
             self.gains = json.load(file)
 
-        with Path(os.path.join(self.metadata_folder_path, "scenes.train.json")).open("r", encoding="utf-8") as file:
+        with Path(os.path.join(self.metadata_folder_path, "scenes." + subset + ".json")).open("r", encoding="utf-8") as file:
             self.scenes = json.load(file)
 
-        with Path(os.path.join(self.metadata_folder_path, "scene_listeners.train.json")).open("r", encoding="utf-8") as file:
+        with Path(os.path.join(self.metadata_folder_path, "scene_listeners." + subset + ".json")).open("r", encoding="utf-8") as file:
             self.scenes_listeners = json.load(file)
 
-        with Path(os.path.join(self.metadata_folder_path, "at_mic_music.train.json")).open("r", encoding="utf-8") as file:
+        with Path(os.path.join(self.metadata_folder_path, "at_mic_music." + subset + ".json")).open("r", encoding="utf-8") as file:
             self.songs = json.load(file)
 
-        self.listener_dict = Listener.load_listener_dict(os.path.join(self.metadata_folder_path, "listeners.train.json"))
+        self.listener_dict = Listener.load_listener_dict(os.path.join(self.metadata_folder_path, "listeners." + subset + ".json"))
 
         self.segments = self._extract_segments()
 
