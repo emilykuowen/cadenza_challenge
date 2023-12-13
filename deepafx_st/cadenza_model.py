@@ -81,7 +81,7 @@ class CadenzaModel(nn.Module):
 
         # learnable comparision
         p = self.controller(e_x, e_y)
-        p_with_gain = torch.cat((p, gain), dim=1).to(self.device)
+        p_with_gain = torch.cat((p, gain), dim=1)
         y_hat = self.processor(x, p_with_gain).requires_grad_()
 
         # process audio conditioned on parameters

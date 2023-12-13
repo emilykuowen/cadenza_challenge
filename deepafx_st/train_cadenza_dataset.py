@@ -63,10 +63,13 @@ if __name__ == "__main__":
         iteration = 0        
         for batch in train_loader:
             original_tensor, reference_tensor, gain_tensor = batch
-            original_tensor, reference_tensor = original_tensor.unsqueeze(1).to(device), reference_tensor.unsqueeze(1).to(device)
+            original_tensor, reference_tensor = original_tensor.unsqueeze(1), reference_tensor.unsqueeze(1)
             original_tensor.requires_grad_()
             reference_tensor.requires_grad_()
-
+            original_tensor.to(device)
+            reference_tensor.to(device)
+            gain_tensor.to(device)
+            
             # Forward pass
             output_tensor, p_with_gain, e_x = cadenza_model(x=original_tensor, y=reference_tensor, gain=gain_tensor, data_sample_rate=data_sample_rate)
 
@@ -89,7 +92,7 @@ if __name__ == "__main__":
             optimizer.step()
             optimizer.zero_grad()
 
-            training_losses.append(training_loss)
+            training_losses.append(training_loss.item())
 
         # Validation phase
         cadenza_model.eval()
@@ -98,6 +101,9 @@ if __name__ == "__main__":
         with torch.no_grad():
             for batch in valid_loader:
                 original_tensor, reference_tensor, gain_tensor = batch
+                original_tensor.to(device)
+                reference_tensor.to(device)
+                gain_tensor.to(device)
 
                 output_tensor, p_with_gain, e_x = cadenza_model(x=original_tensor, y=reference_tensor, gain=gain_tensor, data_sample_rate=data_sample_rate)
                 
