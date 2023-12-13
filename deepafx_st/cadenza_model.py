@@ -18,6 +18,7 @@ class CadenzaModel(nn.Module):
 
         self.processor = AutodiffChannel(self.dsp_sample_rate)
 
+        # load pre-loaded weights
         checkpoint_path = "/Users/emilykuo/Desktop/DeepAFx-ST/checkpoints/style/jamendo/autodiff/lightning_logs/version_0/checkpoints/epoch=362-step=1210241-val-jamendo-autodiff.ckpt"
         system = System.load_from_checkpoint(checkpoint_path)
         self.encoder = system.encoder
@@ -31,7 +32,7 @@ class CadenzaModel(nn.Module):
         # )
 
         for param in self.encoder.parameters():
-                param.requires_grad = False
+            param.requires_grad = False
 
         self.controller = StyleTransferController(
             self.processor.num_control_params,
@@ -80,12 +81,13 @@ class CadenzaModel(nn.Module):
         # learnable comparision
         p = self.controller(e_x, e_y)
         p_with_gain = torch.cat((p, gain), dim=1)
+        y_hat = self.processor(x, p_with_gain).requires_grad_()
 
         # process audio conditioned on parameters
         # if there are multiple channels process them using same parameters
-        y_hat = torch.zeros(x.shape).type_as(x)
-        for ch_idx in range(chs):
-            y_hat_ch = self.processor(x[:, ch_idx : ch_idx + 1, :], p_with_gain)
-            y_hat[:, ch_idx : ch_idx + 1, :] = y_hat_ch
+        # y_hat = torch.zeros(x.shape).type_as(x).requires_grad_()
+        # for ch_idx in range(chs):
+        #     y_hat_ch = self.processor(x[:, ch_idx : ch_idx + 1, :], p_with_gain)
+        #     y_hat[:, ch_idx : ch_idx + 1, :] = y_hat_ch
 
         return y_hat, p_with_gain, e_x

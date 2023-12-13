@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # print details about the model
     system_summary(cadenza_model)
 
-    root_directory = "/data/home/ubuntu/data/cad_icassp_2024"
+    root_directory = "/Users/emilykuo/Desktop/cadenza_data"
     train_dataset = CadenzaDataset(root_directory, subset='train', duration=10)
     valid_dataset = CadenzaDataset(root_directory, subset='valid', duration=10)
 
@@ -62,18 +62,17 @@ if __name__ == "__main__":
         
         iteration = 0        
         for batch in train_loader:
-            
             original_tensor, reference_tensor, gain_tensor = batch
             original_tensor, reference_tensor = original_tensor.unsqueeze(1).to(device), reference_tensor.unsqueeze(1).to(device)
-
-            # Zero the gradients
-            optimizer.zero_grad()
+            original_tensor.requires_grad_()
+            reference_tensor.requires_grad_()
 
             # Forward pass
             output_tensor, p_with_gain, e_x = cadenza_model(x=original_tensor, y=reference_tensor, gain=gain_tensor, data_sample_rate=data_sample_rate)
 
-            recon_loss_weights = [1, 100]
             training_loss = 0
+            recon_loss_weights = [1, 100]
+            
             # compute reconstruction loss terms
             for loss_idx, (loss_name, recon_loss_fn) in enumerate(recon_losses.items()):
                 recon_loss = recon_loss_fn(output_tensor, reference_tensor)  # reconstruction loss
@@ -81,7 +80,6 @@ if __name__ == "__main__":
                 training_loss += recon_loss_weight * recon_loss
 
             training_loss /= batch_size
-            training_losses.append(training_loss)
             logger.info(f'Epoch [{epoch+1}/{num_epochs}], Batch [{iteration+1}/{len(train_loader)}], Training Loss: {training_loss}')
             print(f'Epoch [{epoch+1}/{num_epochs}], Batch [{iteration+1}/{len(train_loader)}], Training Loss: {training_loss}')
             iteration += 1
@@ -89,6 +87,9 @@ if __name__ == "__main__":
             # Backward pass and optimization
             training_loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
+
+            training_losses.append(training_loss)
 
         # Validation phase
         cadenza_model.eval()
@@ -132,4 +133,3 @@ if __name__ == "__main__":
 
         logger.info(f"Checkpoint saved at {checkpoint_path}")
         print(f"Checkpoint saved at {checkpoint_path}")
-
