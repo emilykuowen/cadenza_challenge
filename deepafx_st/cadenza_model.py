@@ -19,7 +19,7 @@ class CadenzaModel(nn.Module):
         self.processor = AutodiffChannel(self.dsp_sample_rate)
 
         # load pre-loaded weights
-        checkpoint_path = "/Users/emilykuo/Desktop/DeepAFx-ST/checkpoints/style/jamendo/autodiff/lightning_logs/version_0/checkpoints/epoch=362-step=1210241-val-jamendo-autodiff.ckpt"
+        checkpoint_path = "../../DeepAFx-ST/checkpoints/style/jamendo/autodiff/lightning_logs/version_0/checkpoints/epoch=362-step=1210241-val-jamendo-autodiff.ckpt"
         system = System.load_from_checkpoint(checkpoint_path)
         self.encoder = system.encoder
         
