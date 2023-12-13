@@ -69,9 +69,9 @@ class CadenzaModel(nn.Module):
         bs, chs, samp = x.size()
         
         if data_sample_rate != self.dsp_sample_rate:
-            x_enc = torchaudio.transforms.Resample(data_sample_rate, self.dsp_sample_rate).to(x.device)(x)
+            x_enc = torchaudio.transforms.Resample(data_sample_rate, self.dsp_sample_rate)(x).to(x.device)
             if y is not None:
-                y_enc = torchaudio.transforms.Resample(data_sample_rate, self.dsp_sample_rate).to(y.device)(y)
+                y_enc = torchaudio.transforms.Resample(data_sample_rate, self.dsp_sample_rate)(y).to(y.device)
         else:
             x_enc = x
             y_enc = y
